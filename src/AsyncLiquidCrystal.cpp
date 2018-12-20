@@ -5,8 +5,24 @@
 #include <inttypes.h>
 #include "Arduino.h"
 
-#define WITHOUT_INTERRUPTION(CODE) {uint8_t sreg = SREG; noInterrupts(); {CODE} SREG = sreg;}
-#define WITH_INTERRUPTION(CODE) {uint8_t sreg = SREG; interrupts(); {CODE} SREG = sreg;}
+class Interrupts {
+    uint8_t sreg;
+public:
+    Interrupts(bool enabled=false) {
+        sreg = SREG;
+        if (enabled) {
+            interrupts();
+        } else {
+            noInterrupts();
+        }
+    }
+    ~Interrupts() {
+        SREG = sreg;
+    }
+};
+
+#define WITHOUT_INTERRUPTION(CODE) {Interrupts _interrupts_handle(false); {CODE}}
+#define WITH_INTERRUPTION(CODE) {Interrupts _interrupts_handle(true); {CODE}}
 
 
 #define LCD_QUEUE_INIT_DELAY     0x00
@@ -288,10 +304,9 @@ bool AsyncLiquidCrystal::noAutoscroll(void) {
 bool AsyncLiquidCrystal::createChar(uint8_t location, uint8_t charmap[]) {
   location &= 0x7; // we only have 8 locations 0-7
   
-  bool ret;
   WITHOUT_INTERRUPTION({
     if (queue.availableForWrite() < 18) {
-      ret = false;
+      return false;
     } else {
       queue.write(LCD_QUEUE_CMD);
       queue.write(LCD_SETCGRAMADDR | (location << 3));
@@ -300,40 +315,35 @@ bool AsyncLiquidCrystal::createChar(uint8_t location, uint8_t charmap[]) {
         queue.write(LCD_QUEUE_WRITE);
         queue.write(charmap[i]);
       }
-      ret = true;
+      return true;
     }
   })
-  return ret;
 }
 
 /*********** mid level commands, for sending data/cmds */
 
 inline bool AsyncLiquidCrystal::command(uint8_t value) {
-  bool ret;
   WITHOUT_INTERRUPTION({
     if (queue.availableForWrite() < 2) {
-      ret = false;
+      return false;
     } else {
       queue.write(LCD_QUEUE_CMD);
       queue.write(value);
-      ret = true;
+      return true;
     }
   })
-  return ret;
 }
 
 inline size_t AsyncLiquidCrystal::write(uint8_t value) {
-  size_t ret;
   WITHOUT_INTERRUPTION({
     if (queue.availableForWrite() < 2) {
-      ret = 0;
+      return 0;
     } else {
       queue.write(LCD_QUEUE_WRITE);
       queue.write(value);
-      ret = 1;
+      return 1;
     }
   })
-  return ret;
 }
 
 /************ low level data pushing commands **********/
