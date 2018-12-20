@@ -6,7 +6,7 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-LiquidCrystal	KEYWORD1	LiquidCrystal
+AsyncLiquidCrystal	KEYWORD1	AsyncLiquidCrystal
 
 #######################################
 # Methods and Functions (KEYWORD2)
