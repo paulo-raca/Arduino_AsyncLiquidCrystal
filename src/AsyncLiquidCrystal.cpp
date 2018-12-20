@@ -173,19 +173,17 @@ void AsyncLiquidCrystal::setRowOffsets(int row0, int row1, int row2, int row3)
 }
 
 /********** high level commands, for the user! */
-void AsyncLiquidCrystal::clear()
+bool AsyncLiquidCrystal::clear()
 {
-  command(LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
-  delayMicroseconds(2000);  // this command takes a long time!
+  return command(LCD_CLEARDISPLAY);  // clear display, set cursor position to zero
 }
 
-void AsyncLiquidCrystal::home()
+bool AsyncLiquidCrystal::home()
 {
-  command(LCD_RETURNHOME);  // set cursor position to zero
-  delayMicroseconds(2000);  // this command takes a long time!
+  return command(LCD_RETURNHOME);  // set cursor position to zero
 }
 
-void AsyncLiquidCrystal::setCursor(uint8_t col, uint8_t row)
+bool AsyncLiquidCrystal::setCursor(uint8_t col, uint8_t row)
 {
   const size_t max_lines = sizeof(_row_offsets) / sizeof(*_row_offsets);
   if ( row >= max_lines ) {
@@ -195,96 +193,141 @@ void AsyncLiquidCrystal::setCursor(uint8_t col, uint8_t row)
     row = _numlines - 1;    // we count rows starting w/0
   }
   
-  command(LCD_SETDDRAMADDR | (col + _row_offsets[row]));
+  return command(LCD_SETDDRAMADDR | (col + _row_offsets[row]));
 }
 
 // Turn the display on/off (quickly)
-void AsyncLiquidCrystal::noDisplay() {
-  _displaycontrol &= ~LCD_DISPLAYON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::noDisplay() {
+  uint8_t newdisplaycontrol = _displaycontrol & ~LCD_DISPLAYON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
-void AsyncLiquidCrystal::display() {
-  _displaycontrol |= LCD_DISPLAYON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::display() {
+  uint8_t newdisplaycontrol = _displaycontrol | LCD_DISPLAYON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
 
 // Turns the underline cursor on/off
-void AsyncLiquidCrystal::noCursor() {
-  _displaycontrol &= ~LCD_CURSORON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::noCursor() {
+  uint8_t newdisplaycontrol = _displaycontrol & ~LCD_CURSORON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
-void AsyncLiquidCrystal::cursor() {
-  _displaycontrol |= LCD_CURSORON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::cursor() {
+  uint8_t newdisplaycontrol = _displaycontrol | LCD_CURSORON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
 
 // Turn on and off the blinking cursor
-void AsyncLiquidCrystal::noBlink() {
-  _displaycontrol &= ~LCD_BLINKON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::noBlink() {
+  uint8_t newdisplaycontrol = _displaycontrol & ~LCD_BLINKON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
-void AsyncLiquidCrystal::blink() {
-  _displaycontrol |= LCD_BLINKON;
-  command(LCD_DISPLAYCONTROL | _displaycontrol);
+bool AsyncLiquidCrystal::blink() {
+  uint8_t newdisplaycontrol = _displaycontrol | LCD_BLINKON;
+  bool ret = command(LCD_DISPLAYCONTROL | newdisplaycontrol);
+  if (ret) {
+      _displaycontrol = newdisplaycontrol;
+  }
+  return ret;
 }
 
 // These commands scroll the display without changing the RAM
-void AsyncLiquidCrystal::scrollDisplayLeft(void) {
-  command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVELEFT);
+bool AsyncLiquidCrystal::scrollDisplayLeft(void) {
+  return command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVELEFT);
 }
-void AsyncLiquidCrystal::scrollDisplayRight(void) {
-  command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVERIGHT);
+bool AsyncLiquidCrystal::scrollDisplayRight(void) {
+  return command(LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVERIGHT);
 }
 
 // This is for text that flows Left to Right
-void AsyncLiquidCrystal::leftToRight(void) {
-  _displaymode |= LCD_ENTRYLEFT;
-  command(LCD_ENTRYMODESET | _displaymode);
+bool AsyncLiquidCrystal::leftToRight(void) {
+  uint8_t newdisplaymode = _displaymode | LCD_ENTRYLEFT;
+  bool ret = command(LCD_ENTRYMODESET | newdisplaymode);
+  if (ret) {
+      _displaymode = newdisplaymode;
+  }
+  return ret;
 }
 
 // This is for text that flows Right to Left
-void AsyncLiquidCrystal::rightToLeft(void) {
-  _displaymode &= ~LCD_ENTRYLEFT;
-  command(LCD_ENTRYMODESET | _displaymode);
+bool AsyncLiquidCrystal::rightToLeft(void) {
+  uint8_t newdisplaymode = _displaymode & ~LCD_ENTRYLEFT;
+  bool ret = command(LCD_ENTRYMODESET | newdisplaymode);
+  if (ret) {
+      _displaymode = newdisplaymode;
+  }
+  return ret;
 }
 
 // This will 'right justify' text from the cursor
-void AsyncLiquidCrystal::autoscroll(void) {
-  _displaymode |= LCD_ENTRYSHIFTINCREMENT;
-  command(LCD_ENTRYMODESET | _displaymode);
+bool AsyncLiquidCrystal::autoscroll(void) {
+  uint8_t newdisplaymode = _displaymode | LCD_ENTRYSHIFTINCREMENT;
+  bool ret = command(LCD_ENTRYMODESET | newdisplaymode);
+  if (ret) {
+      _displaymode = newdisplaymode;
+  }
+  return ret;
 }
 
 // This will 'left justify' text from the cursor
-void AsyncLiquidCrystal::noAutoscroll(void) {
-  _displaymode &= ~LCD_ENTRYSHIFTINCREMENT;
-  command(LCD_ENTRYMODESET | _displaymode);
+bool AsyncLiquidCrystal::noAutoscroll(void) {
+  uint8_t newdisplaymode = _displaymode & ~LCD_ENTRYSHIFTINCREMENT;
+  bool ret = command(LCD_ENTRYMODESET | newdisplaymode);
+  if (ret) {
+      _displaymode = newdisplaymode;
+  }
+  return ret;
 }
 
 // Allows us to fill the first 8 CGRAM locations
 // with custom characters
-void AsyncLiquidCrystal::createChar(uint8_t location, uint8_t charmap[]) {
+bool AsyncLiquidCrystal::createChar(uint8_t location, uint8_t charmap[]) {
+  //FIXME: It should probably be all-or-nothing
   location &= 0x7; // we only have 8 locations 0-7
-  command(LCD_SETCGRAMADDR | (location << 3));
-  for (int i=0; i<8; i++) {
-    write(charmap[i]);
+  if (!command(LCD_SETCGRAMADDR | (location << 3))) {
+    return false;
   }
+  for (int i=0; i<8; i++) {
+    if (!write(charmap[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /*********** mid level commands, for sending data/cmds */
 
-inline void AsyncLiquidCrystal::command(uint8_t value) {
-  send(value, LOW);
+inline bool AsyncLiquidCrystal::command(uint8_t value) {
+  return send(value, LOW);
 }
 
 inline size_t AsyncLiquidCrystal::write(uint8_t value) {
-  send(value, HIGH);
-  return 1; // assume sucess
+  return send(value, HIGH);
 }
 
 /************ low level data pushing commands **********/
 
 // write either command or data, with automatic 4/8-bit selection
-void AsyncLiquidCrystal::send(uint8_t value, uint8_t mode) {
+bool AsyncLiquidCrystal::send(uint8_t value, uint8_t mode) {
   digitalWrite(_rs_pin, mode);
 
   // if there is a RW pin indicated, set it low to Write
