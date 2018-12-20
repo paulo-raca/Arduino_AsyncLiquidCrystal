@@ -5,6 +5,17 @@
 #include <inttypes.h>
 #include "Arduino.h"
 
+#define WITHOUT_INTERRUPTION(CODE) {uint8_t sreg = SREG; noInterrupts(); {CODE} SREG = sreg;}
+#define WITH_INTERRUPTION(CODE) {uint8_t sreg = SREG; interrupts(); {CODE} SREG = sreg;}
+
+
+#define LCD_QUEUE_INIT_DELAY     0x00
+#define LCD_QUEUE_INIT_0x30_SLOW 0x01
+#define LCD_QUEUE_INIT_0x30      0x02
+#define LCD_QUEUE_INIT_0x20      0x03
+#define LCD_QUEUE_CMD            0x04
+#define LCD_QUEUE_WRITE          0x05
+
 // When the display powers up, it is configured as follows:
 //
 // 1. Display clear
@@ -92,76 +103,49 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
   // we can save 1 pin by not using RW. Indicate by passing 255 instead of pin#
   if (_rw_pin != 255) { 
     pinMode(_rw_pin, OUTPUT);
+    digitalWrite(_rw_pin, LOW);
   }
   pinMode(_enable_pin, OUTPUT);
+  digitalWrite(_enable_pin, LOW);
   
   // Do these once, instead of every time a character is drawn for speed reasons.
   for (int i=0; i<((_displayfunction & LCD_8BITMODE) ? 8 : 4); ++i)
   {
     pinMode(_data_pins[i], OUTPUT);
    } 
-
-  // SEE PAGE 45/46 FOR INITIALIZATION SPECIFICATION!
-  // according to datasheet, we need at least 40ms after power rises above 2.7V
-  // before sending commands. Arduino can turn on way before 4.5V so we'll wait 50
-  delayMicroseconds(50000); 
-  // Now we pull both RS and R/W low to begin commands
-  digitalWrite(_rs_pin, LOW);
-  digitalWrite(_enable_pin, LOW);
-  if (_rw_pin != 255) { 
-    digitalWrite(_rw_pin, LOW);
-  }
   
-  //put the LCD into 4 bit or 8 bit mode
-  if (! (_displayfunction & LCD_8BITMODE)) {
-    // this is according to the hitachi HD44780 datasheet
-    // figure 24, pg 46
+  //Enqueue reset commands
+  WITHOUT_INTERRUPTION({
+    queue.clear();
+    queue.write(LCD_QUEUE_INIT_DELAY);
+    queue.write(LCD_QUEUE_INIT_0x30_SLOW);
+    queue.write(LCD_QUEUE_INIT_0x30);
+    queue.write(LCD_QUEUE_INIT_0x30);
 
-    // we start in 8bit mode, try to set 4 bit mode
-    write4bits(0x03);
-    delayMicroseconds(4500); // wait min 4.1ms
-
-    // second try
-    write4bits(0x03);
-    delayMicroseconds(4500); // wait min 4.1ms
+    if (! (_displayfunction & LCD_8BITMODE)) {
+      queue.write(LCD_QUEUE_INIT_0x20);
+    }
     
-    // third go!
-    write4bits(0x03); 
-    delayMicroseconds(150);
 
-    // finally, set to 4-bit interface
-    write4bits(0x02); 
-  } else {
-    // this is according to the hitachi HD44780 datasheet
-    // page 45 figure 23
-
-    // Send function set command sequence
-    command(LCD_FUNCTIONSET | _displayfunction);
-    delayMicroseconds(4500);  // wait more than 4.1ms
-
-    // second try
-    command(LCD_FUNCTIONSET | _displayfunction);
-    delayMicroseconds(150);
-
-    // third go
-    command(LCD_FUNCTIONSET | _displayfunction);
-  }
-
-  // finally, set # lines, font size, etc.
-  command(LCD_FUNCTIONSET | _displayfunction);  
-
-  // turn the display on with no cursor or blinking default
-  _displaycontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF;  
-  display();
-
-  // clear it off
-  clear();
-
-  // Initialize to default text direction (for romance languages)
-  _displaymode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
-  // set the entry mode
-  command(LCD_ENTRYMODESET | _displaymode);
-
+    // finally, set # lines, font size, etc.
+    queue.write(LCD_QUEUE_CMD);
+    queue.write(LCD_FUNCTIONSET | _displayfunction);
+    
+    // turn the display on with no cursor or blinking default
+    _displaycontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF;  
+    queue.write(LCD_QUEUE_CMD);
+    queue.write(LCD_DISPLAYCONTROL | _displaycontrol);
+  
+    // clear it off
+    queue.write(LCD_QUEUE_CMD);
+    queue.write(LCD_CLEARDISPLAY);
+    
+    // Initialize to default text direction (for romance languages)
+    _displaymode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT;
+    // set the entry mode
+    queue.write(LCD_QUEUE_CMD);
+    queue.write(LCD_ENTRYMODESET | _displaymode);
+  })
 }
 
 void AsyncLiquidCrystal::setRowOffsets(int row0, int row1, int row2, int row3)
@@ -301,27 +285,54 @@ bool AsyncLiquidCrystal::noAutoscroll(void) {
 // Allows us to fill the first 8 CGRAM locations
 // with custom characters
 bool AsyncLiquidCrystal::createChar(uint8_t location, uint8_t charmap[]) {
-  //FIXME: It should probably be all-or-nothing
   location &= 0x7; // we only have 8 locations 0-7
-  if (!command(LCD_SETCGRAMADDR | (location << 3))) {
-    return false;
-  }
-  for (int i=0; i<8; i++) {
-    if (!write(charmap[i])) {
-      return false;
+  
+  bool ret;
+  WITHOUT_INTERRUPTION({
+    if (queue.availableForWrite() < 18) {
+      ret = false;
+    } else {
+      queue.write(LCD_QUEUE_CMD);
+      queue.write(LCD_SETCGRAMADDR | (location << 3));
+        
+      for (int i=0; i<8; i++) {
+        queue.write(LCD_QUEUE_WRITE);
+        queue.write(charmap[i]);
+      }
+      ret = true;
     }
-  }
-  return true;
+  })
+  return ret;
 }
 
 /*********** mid level commands, for sending data/cmds */
 
 inline bool AsyncLiquidCrystal::command(uint8_t value) {
-  return send(value, LOW);
+  bool ret;
+  WITHOUT_INTERRUPTION({
+    if (queue.availableForWrite() < 2) {
+      ret = false;
+    } else {
+      queue.write(LCD_QUEUE_CMD);
+      queue.write(value);
+      ret = true;
+    }
+  })
+  return ret;
 }
 
 inline size_t AsyncLiquidCrystal::write(uint8_t value) {
-  return send(value, HIGH);
+  size_t ret;
+  WITHOUT_INTERRUPTION({
+    if (queue.availableForWrite() < 2) {
+      ret = 0;
+    } else {
+      queue.write(LCD_QUEUE_WRITE);
+      queue.write(value);
+      ret = 1;
+    }
+  })
+  return ret;
 }
 
 /************ low level data pushing commands **********/

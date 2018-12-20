@@ -1,6 +1,8 @@
 #ifndef AsyncLiquidCrystal_h
 #define AsyncLiquidCrystal_h
 
+#include <LoopbackStream.h>
+
 #include <inttypes.h>
 #include "Print.h"
 
@@ -85,6 +87,8 @@ public:
   
   using Print::write;
 private:
+  LoopbackStream queue;
+    
   bool send(uint8_t, uint8_t);
   void write4bits(uint8_t);
   void write8bits(uint8_t);
