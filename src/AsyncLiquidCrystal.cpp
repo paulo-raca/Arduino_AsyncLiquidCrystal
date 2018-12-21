@@ -133,7 +133,7 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
   digitalWrite(_enable_pin, LOW);
   
   // Do these once, instead of every time a character is drawn for speed reasons.
-  for (int i=0; i<((_displayfunction & LCD_8BITMODE) ? 8 : 4); ++i) {
+  for (int i=((_displayfunction & LCD_8BITMODE) ? 0 : 4); i<8; ++i) {
     pinMode(_data_pins[i], OUTPUT);
     digitalWrite(_data_pins[i], LOW);
   }

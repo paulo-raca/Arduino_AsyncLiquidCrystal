@@ -6,17 +6,11 @@
 // include the library code:
 #include <AsyncLiquidCrystal.h>
 #include <DeepSleepScheduler.h>
-#include <LiquidCrystal.h>
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
 AsyncLiquidCrystal lcd(PIN_PH7, PIN_PG3, PIN_PG4,
                   PIN_PL0, PIN_PL1, PIN_PL2, PIN_PL6);
-
-LiquidCrystal old_lcd(PIN_PH7, PIN_PG3, PIN_PG4,
-                  PIN_PL0, PIN_PL1, PIN_PL2, PIN_PL6);
-
 
 void scheduledDisplayRefresh() {
     long delay = lcd.processQueue();
