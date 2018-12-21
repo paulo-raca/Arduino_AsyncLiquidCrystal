@@ -66,15 +66,15 @@ AsyncLiquidCrystal::AsyncLiquidCrystal(uint8_t rs, uint8_t enable,
 }
 
 AsyncLiquidCrystal::AsyncLiquidCrystal(uint8_t rs, uint8_t rw, uint8_t enable,
-			     uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
+			     uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
 {
-  init(1, rs, rw, enable, d0, d1, d2, d3, 0, 0, 0, 0);
+  init(1, rs, rw, enable, 0, 0, 0, 0, d4, d5, d6, d7);
 }
 
 AsyncLiquidCrystal::AsyncLiquidCrystal(uint8_t rs,  uint8_t enable,
-			     uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
+			     uint8_t d4, uint8_t d5, uint8_t d6, uint8_t d7)
 {
-  init(1, rs, 255, enable, d0, d1, d2, d3, 0, 0, 0, 0);
+  init(1, rs, 255, enable, 0, 0, 0, 0, d4, d5, d6, d7);
 }
 
 void AsyncLiquidCrystal::init(uint8_t fourbitmode, uint8_t rs, uint8_t rw, uint8_t enable,
