@@ -107,11 +107,6 @@ private:
   unsigned long wait_until;
   uint8_t state;
   LoopbackStream queue;
-    
-  bool send(uint8_t, uint8_t);
-  void write4bits(uint8_t);
-  void write8bits(uint8_t);
-  void pulseEnable();
 
   uint8_t _rs_pin; // LOW: command.  HIGH: character.
   uint8_t _rw_pin; // LOW: write to LCD.  HIGH: read from LCD.
