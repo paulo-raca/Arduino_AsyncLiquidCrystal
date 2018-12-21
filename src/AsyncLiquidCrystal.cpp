@@ -100,6 +100,8 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
   }
 
   pinMode(_rs_pin, OUTPUT);
+  digitalWrite(_rs_pin, LOW);
+  
   // we can save 1 pin by not using RW. Indicate by passing 255 instead of pin#
   if (_rw_pin != 255) { 
     pinMode(_rw_pin, OUTPUT);
@@ -109,10 +111,10 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
   digitalWrite(_enable_pin, LOW);
   
   // Do these once, instead of every time a character is drawn for speed reasons.
-  for (int i=0; i<((_displayfunction & LCD_8BITMODE) ? 8 : 4); ++i)
-  {
+  for (int i=0; i<((_displayfunction & LCD_8BITMODE) ? 8 : 4); ++i) {
     pinMode(_data_pins[i], OUTPUT);
-   } 
+    digitalWrite(_data_pins[i], LOW);
+  }
   
   //Enqueue reset commands
   WITHOUT_INTERRUPTION({
@@ -125,7 +127,6 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
     if (! (_displayfunction & LCD_8BITMODE)) {
       queue.write(LCD_QUEUE_INIT_0x20);
     }
-    
 
     // finally, set # lines, font size, etc.
     queue.write(LCD_QUEUE_CMD);
