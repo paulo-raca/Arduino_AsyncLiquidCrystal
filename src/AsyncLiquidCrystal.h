@@ -85,8 +85,27 @@ public:
   virtual size_t write(uint8_t);
   bool command(uint8_t);
   
+  /**
+   * This will execute pending commands from the internal queue.
+   * While all the various commands in this class return immediately, 
+   * you should processQueue flush() ASAP after calling then.
+   * 
+   * If processQueue() returns -1, the queue is empty and it doesn't need to be called again until new commands are issued.
+   * Otherwise, you should call flush() again after the specified number of microseconds to process the next element in the queue.
+   */
+  long processQueue();
+  
+  /**
+   * This will block until the whole queue has been processed.
+   * 
+   * It's the same as calling processQueue() until it returns -1
+   */
+  virtual void flush();
+  
   using Print::write;
 private:
+  unsigned long wait_until;
+  uint8_t state;
   LoopbackStream queue;
     
   bool send(uint8_t, uint8_t);

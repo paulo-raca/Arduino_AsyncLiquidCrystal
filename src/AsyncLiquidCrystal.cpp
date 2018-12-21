@@ -32,6 +32,12 @@ public:
 #define LCD_QUEUE_CMD            0x04
 #define LCD_QUEUE_WRITE          0x05
 
+
+#define LCD_STATE_READY            0x00
+#define LCD_STATE_WAIT_EXECUTION   0x01
+
+#define LCD_TIME(micros) (micros + micros/8 + 1)  // Add ~12.5% slack over official timmings to compensate for different LCDs
+
 // When the display powers up, it is configured as follows:
 //
 // 1. Display clear
@@ -134,6 +140,7 @@ void AsyncLiquidCrystal::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
   
   //Enqueue reset commands
   WITHOUT_INTERRUPTION({
+    state = LCD_STATE_READY;
     queue.clear();
     queue.write(LCD_QUEUE_INIT_DELAY);
     queue.write(LCD_QUEUE_INIT_0x30_SLOW);
@@ -346,46 +353,122 @@ inline size_t AsyncLiquidCrystal::write(uint8_t value) {
   })
 }
 
-/************ low level data pushing commands **********/
-
-// write either command or data, with automatic 4/8-bit selection
-bool AsyncLiquidCrystal::send(uint8_t value, uint8_t mode) {
-  digitalWrite(_rs_pin, mode);
-
-  // if there is a RW pin indicated, set it low to Write
-  if (_rw_pin != 255) { 
-    digitalWrite(_rw_pin, LOW);
+long AsyncLiquidCrystal::processQueue() { 
+  uint8_t cmd;
+  uint8_t cmd_data;
+  
+  WITHOUT_INTERRUPTION({
+    if (state != LCD_STATE_READY) {
+      long wait = wait_until - micros();
+      if (wait > 0) {
+        return wait;
+      } else {
+        state = LCD_STATE_READY;
+      }
+    }
+    
+    if (!queue.available()) {
+      return -1;
+    }
+    
+    //TODO: Add more intermediate states to avoid `delay_micros(1)` when strobbing EN
+    cmd = queue.read();
+    if ((cmd == LCD_QUEUE_CMD) || (cmd == LCD_QUEUE_WRITE)) {
+      cmd_data = queue.read();
+    }
+  })
+    
+  long delay = 0;
+  switch (cmd) {
+    case LCD_QUEUE_INIT_DELAY: {
+      delay = 4000;
+      state = LCD_STATE_WAIT_EXECUTION;
+      break;
+    }
+    case LCD_QUEUE_INIT_0x30_SLOW: 
+    case LCD_QUEUE_INIT_0x30 : 
+    case LCD_QUEUE_INIT_0x20: {
+      digitalWrite(_rs_pin, LOW);
+      
+      digitalWrite(_data_pins[7], LOW);
+      digitalWrite(_data_pins[6], LOW);
+      digitalWrite(_data_pins[5], HIGH);
+      digitalWrite(_data_pins[4], (cmd == LCD_QUEUE_INIT_0x20) ? LOW : HIGH);
+      
+      delayMicroseconds(1);
+      digitalWrite(_enable_pin, HIGH);
+      delayMicroseconds(1);
+      digitalWrite(_enable_pin, LOW);
+      
+      delay = (cmd == LCD_QUEUE_INIT_0x30_SLOW ? 4100 : 100);
+      state = LCD_STATE_WAIT_EXECUTION;
+      break;
+    }
+    case LCD_QUEUE_CMD:
+    case LCD_QUEUE_WRITE: {
+      digitalWrite(_rs_pin, cmd == LCD_QUEUE_CMD ? LOW : HIGH);
+      if (_displayfunction & LCD_8BITMODE) {
+        digitalWrite(_data_pins[0], cmd_data & (1<<0));
+        digitalWrite(_data_pins[1], cmd_data & (1<<1));
+        digitalWrite(_data_pins[2], cmd_data & (1<<2));
+        digitalWrite(_data_pins[3], cmd_data & (1<<3));
+        digitalWrite(_data_pins[4], cmd_data & (1<<4));
+        digitalWrite(_data_pins[5], cmd_data & (1<<5));
+        digitalWrite(_data_pins[6], cmd_data & (1<<6));
+        digitalWrite(_data_pins[7], cmd_data & (1<<7));
+        
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, HIGH);
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, LOW);
+      } else {
+        digitalWrite(_data_pins[4], cmd_data & (1<<4));
+        digitalWrite(_data_pins[5], cmd_data & (1<<5));
+        digitalWrite(_data_pins[6], cmd_data & (1<<6));
+        digitalWrite(_data_pins[7], cmd_data & (1<<7));
+        
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, HIGH);
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, LOW);
+        
+        digitalWrite(_data_pins[4], cmd_data & (1<<0));
+        digitalWrite(_data_pins[5], cmd_data & (1<<1));
+        digitalWrite(_data_pins[6], cmd_data & (1<<2));
+        digitalWrite(_data_pins[7], cmd_data & (1<<3));
+        
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, HIGH);
+        delayMicroseconds(1);
+        digitalWrite(_enable_pin, LOW);
+      }
+      
+      if (cmd == LCD_QUEUE_WRITE) {
+        delay = 41;
+      } else {
+        if (cmd_data & (LCD_SETDDRAMADDR|LCD_SETCGRAMADDR|LCD_FUNCTIONSET|LCD_CURSORSHIFT|LCD_DISPLAYCONTROL|LCD_ENTRYMODESET)) {
+          delay = 37;
+        } else if (cmd_data & (LCD_RETURNHOME|LCD_CLEARDISPLAY)) {
+          delay = 1520;
+        } else {  // No-op
+          delay = 37;
+        }
+      }
+      state = LCD_STATE_WAIT_EXECUTION;
+    }
   }
   
-  if (_displayfunction & LCD_8BITMODE) {
-    write8bits(value); 
-  } else {
-    write4bits(value>>4);
-    write4bits(value);
-  }
-}
-
-void AsyncLiquidCrystal::pulseEnable(void) {
-  digitalWrite(_enable_pin, LOW);
-  delayMicroseconds(1);    
-  digitalWrite(_enable_pin, HIGH);
-  delayMicroseconds(1);    // enable pulse must be >450ns
-  digitalWrite(_enable_pin, LOW);
-  delayMicroseconds(100);   // commands need > 37us to settle
-}
-
-void AsyncLiquidCrystal::write4bits(uint8_t value) {
-  for (int i = 0; i < 4; i++) {
-    digitalWrite(_data_pins[i], (value >> i) & 0x01);
-  }
-
-  pulseEnable();
-}
-
-void AsyncLiquidCrystal::write8bits(uint8_t value) {
-  for (int i = 0; i < 8; i++) {
-    digitalWrite(_data_pins[i], (value >> i) & 0x01);
-  }
+  delay = LCD_TIME(delay);
+  wait_until = micros() + delay;
   
-  pulseEnable();
+  return delay;
 }
+
+void AsyncLiquidCrystal::flush() { 
+  while (true) {
+    if (processQueue() < 0) {
+      return;
+    }
+  }
+}
+
