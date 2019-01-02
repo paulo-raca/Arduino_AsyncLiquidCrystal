@@ -1,4 +1,4 @@
-/*
+ /*
  * This examples has 2 tasks, one producing data to display on the LCD, another one doing the actual communication with it.
  * Everything is orchestrated by DeepSleepScheduler.
 */
@@ -6,6 +6,8 @@
 // include the library code:
 #include <AsyncLiquidCrystal.h>
 #include <DeepSleepScheduler.h>
+
+#define ROW_LEN 20
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
@@ -27,12 +29,11 @@ void rescheduledDisplayRefresh() {
 void scheduledDisplayNextChar() {
     static char c = 0;
     static char row_first = 'A';
-    static uint8_t row_count = 40;
+    static uint8_t row_count = ROW_LEN;
 
     bool sched = false;
     while (true) {
-        bool ret;
-        if (row_count == 40) {
+        if (row_count == ROW_LEN) {
             if (lcd.setCursor(0, 0)) {
                 row_count = 0;
                 c = row_first;
@@ -43,7 +44,7 @@ void scheduledDisplayNextChar() {
                 scheduler.scheduleDelayed(scheduledDisplayNextChar, 100);
                 break;
             } else {
-              scheduler.scheduleDelayed(scheduledDisplayNextChar, 1);
+              scheduler.schedule(scheduledDisplayNextChar);
               break;
             }
         } else {
@@ -55,7 +56,7 @@ void scheduledDisplayNextChar() {
                     c = 'A';
                 }
             } else {
-              scheduler.scheduleDelayed(scheduledDisplayNextChar, 1);
+              scheduler.schedule(scheduledDisplayNextChar);
               break;
             }
         }

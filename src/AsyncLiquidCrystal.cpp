@@ -356,10 +356,10 @@ inline size_t AsyncLiquidCrystal::write(uint8_t value) {
 long AsyncLiquidCrystal::processQueue() { 
   uint8_t cmd;
   uint8_t cmd_data;
-  
+  long now = micros();
   WITHOUT_INTERRUPTION({
     if (state != LCD_STATE_READY) {
-      long wait = wait_until - micros();
+      long wait = wait_until - now;
       if (wait > 0) {
         return wait;
       } else {
@@ -371,7 +371,8 @@ long AsyncLiquidCrystal::processQueue() {
       return -1;
     }
     
-    //TODO: Add more intermediate states to avoid `delay_micros(1)` when strobbing EN
+    //TODO: Maybe add more intermediate states to avoid `delay_micros(1)` when strobbing EN
+    //OTOH, 1us is just a handful of cycles on an AVR, so yielding may not be a good idea at all.
     cmd = queue.read();
     if ((cmd == LCD_QUEUE_CMD) || (cmd == LCD_QUEUE_WRITE)) {
       cmd_data = queue.read();
