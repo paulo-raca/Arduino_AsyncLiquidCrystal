@@ -9,8 +9,9 @@ The usage is basically the same as the original library, please see [LiquidCryst
 
 Differences are:
 - Operations are queued internally, therefore funcions return immediately.
-- if the internal queue is full, functions will return false. (write() returns the number of bytes written), and the operation should be enqueued again later.
-- After issuing commands, you must give it a chance to execute the queued commands with `processQueue()` or `flush`
+- if the internal queue is full, functions will return false (write() returns the number of bytes queued).
+It's up to the caller code to re-executed failed operations later.
+- After issuing commands, you must give it a chance to execute the queued commands with `processQueue()` or `flush()`.
 
 ### `processQueue()`
 
@@ -20,7 +21,8 @@ It will also return the amount of time, in microseconds, you should wait until t
 
 If there are no more commands to execute, it will return -1.
 
-Calling this again before the time has ellapsed is a no-op: It will just tell you to wait a bit more. On the other hand, waiting more than the suggested time will slow down your refresh, but is otherwise harmless.
+Calling this again before the time has ellapsed is a no-op: It will just tell you to wait a bit more.
+On the other hand, waiting more than the suggested time will slow down your refresh, but is otherwise harmless.
    
 ### `flush()`
 
