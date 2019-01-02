@@ -10,7 +10,7 @@ The usage is basically the same as the original library, please see [LiquidCryst
 Differences are:
 - Operations are queued internally, therefore funcions return immediately.
 - if the internal queue is full, functions will return false. (write() returns the number of bytes written), and the operation should be enqueued again later.
-- After issuing commands, you must give it a chance to execute the queued commands with { processQueue()` or `flush`
+- After issuing commands, you must give it a chance to execute the queued commands with `processQueue()` or `flush`
 
 ### `processQueue()`
 
